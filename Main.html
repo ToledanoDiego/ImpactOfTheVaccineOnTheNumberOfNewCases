@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<meta charset="utf-8">
+<head>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <link rel="icon" href="https://i.imgur.com/YeanXSI.png" />
+    <title>Impact of the vaccine on the number of new cases
+    </title>
+
+
+    <style>
+
+        body {
+            background: rgb(238,174,202);
+            background: radial-gradient(circle, rgba(238,174,202,1) 0%, rgba(148,187,233,1) 100%);
+        }
+
+        svg{
+            background: #fff4f1;
+            border: 2px solid black;
+
+        }
+
+        html {
+            font: normal 100%/1.4 Georgia,serif;
+        }
+
+        .container {
+            height: 20px;
+            position: relative;
+        }
+
+        .center {
+            margin: 0;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            -ms-transform: translate(-50%, -50%);
+            transform: translate(-50%, -50%);
+        }
+
+        p {
+            font: normal 100%/1.4 Georgia,serif;;
+            text-align: justify;
+            text-justify: inter-word;
+        }
+
+    </style>
+    </style>
+</head>
+<body>
+
+<h1 align= center>Impact of the vaccine on the number of new cases
+</h1>
+<p align= center>Data for this visualization have been processed by selecting the number of vaccinated people per countries as well as the population number in order to output the percent of people vaccinated per countries. In terms of data cleaning, data have been reduced to start at the moment where the vaccinations campaign started. Data come from : Our World in Data. 2021. Coronavirus (COVID-19) Vaccinations - Statistics and Research. [online] Available at:  <a href="https://ourworldindata.org/covid-vaccinations"> &lt;https://ourworldindata.org/covid-vaccinations> </a> [Accessed 8 April 2021]. </p>
+<div class="container">
+    <div class="center">
+        <button onclick="graph1()">Vaccinations</button>
+        <button onclick="graph2()">New cases</button>
+    </div>
+</div>
+<h3 align= center>Vaccinations</h3>
+<div style="text-align:center;">
+    <svg align = center width="950" height="600">
+    </svg>
+</div>
+
+<script>
+
+    let colors = ['orange', 'deepskyblue', 'green'];
+    for (i = 0; i <= 500; i++) {
+        colors.push('#' + (Math.floor(Math.random() * 16777215).toString(16)))
+    }
+
+    function graph1() {
+
+        d3.select("h3").text("Vaccinations");
+
+        d3.select("g").remove();
+        let totalWidth = 900, totalHeight = 600;
+        let margin = {top: 50, right: 50, bottom: 50, left: 50},
+            width = totalWidth - margin.right,
+            height = totalHeight - margin.top - margin.bottom;
+
+        let svg = d3.select("svg")
+            .append("g")
+            .attr("width", width)
+            .attr("height",totalHeight)
+            .attr("transform","translate("+margin.left+","+margin.top+")");
+
+        function parseRow(d) {
+            let newRow = {}
+            newRow.name = d.Location;
+            newRow.frequency = +d.Vaccinations;
+            newRow.year = d3.timeParse("%Y-%m-%d %H:%M:%S")(d.Date);
+
+            console.log("555")
+            return newRow;
+        }
+
+        d3.csv("covid.csv", parseRow).then(
+            function (data) {
+
+                let xScale = d3.scaleTime()
+                    .domain(d3.extent(data, function (d) {
+                        return d.year;
+                    }))
+                    .range([0, width]);
+
+                let yScale = d3.scaleLinear()
+                    .domain([0, d3.max(data, function (d) {
+                        return +d.frequency;
+                    })])
+                    .range([height, 0]);
+
+                let xAxis = svg.append("g")
+                    .attr("transform", "translate(0," + height + ")")
+                    .call(d3.axisBottom(xScale));
+
+                let yAxis = svg.append("g")
+                    .call(d3.axisLeft(yScale));
+
+                let lineGenerator = d3.line()
+                    .x(function (d) {
+                        return xScale(d.year);
+                    })
+                    .y(function (d) {
+                        return yScale(d.frequency);
+                    })
+                    .defined(function (d) {
+                        return d.frequency != 0;
+                    })
+                    .curve(d3.curveMonotoneX)
+
+                let nestedData = d3.nest()
+                    .key(function (d) {
+                        return d.name;
+                    })
+                    .entries(data);
+
+                var div = d3.select("body").append("div")
+                    .attr("class", "tooltip")
+                    .style("opacity", 0);
+
+                let lines = svg.append("g");
+
+                lines.selectAll(".line")
+                    .data(nestedData)
+                    .enter()
+                    .append("g")
+                    .append("path")
+                    .attr("class", "line")
+                    .attr("d", function (d, i) {
+                        return lineGenerator(d.values);
+                    })
+                    .style("fill", "none")
+                    .style("stroke", function (d, i) {
+                        return colors[i];
+                    })
+                    .style("opacity", .9)
+
+                    .style("stroke-width", 2)
+                    .on("mouseover", function (d, i) {
+                        d3.select(this).style("stroke-width", 4)
+                        lines.selectAll(".line").style("opacity", .25)
+                        d3.select(this).style("opacity", 1)
+                        div.transition()
+                            .duration(20)
+                            .style("opacity", .9);
+                        d3.select("body").append("h6").text(d.key);
+                        d3.select("h6").attr("align", "center");
+
+                    })
+                    .on("mouseout", function (d, i) {
+                        d3.select(this).style("stroke-width", 2)
+                        lines.selectAll(".line").style("opacity", .9)
+                        div.transition()
+                            .duration(50)
+                            .style("opacity", 0);
+                        d3.selectAll("h6").remove();
+                    })
+                    .on("click", function(){
+                    d3.select(this).style("opacity", 1)
+                    lines.selectAll(".line").style("opacity", .01)
+                    d3.select(this).style("opacity", 1)
+                    });
+            }
+        );
+    }
+    function graph2() {
+
+        d3.select("h3").text("New Casses");
+
+        d3.select("g").remove();
+        let totalWidth = 900, totalHeight = 600;
+        let margin = {top: 50, right: 50, bottom: 50, left: 50},
+            width = totalWidth - margin.right,
+            height = totalHeight - margin.top - margin.bottom;
+
+        let svg = d3.select("svg")
+            .append("g")
+            .attr("width", width)
+            .attr("height",totalHeight)
+            .attr("transform","translate("+margin.left+","+margin.top+")");
+
+        function parseRow(d) {
+            let newRow = {}
+            newRow.name = d.Location;
+            newRow.frequency = +d.Cases;
+            newRow.year = d3.timeParse("%Y-%m-%d %H:%M:%S")(d.Date);
+
+            console.log("555")
+            return newRow;
+        }
+
+        d3.csv("covid.csv", parseRow).then(
+
+            function (data) {
+
+                let xScale = d3.scaleTime()
+                    .domain(d3.extent(data, function (d) {
+                        return d.year;
+                    }))
+                    .range([0, width]);
+
+                let yScale = d3.scaleLinear()
+                    .domain([0, d3.max(data, function (d) {
+                        return +d.frequency;
+                    })])
+                    .range([height, 0]);
+
+                let xAxis = svg.append("g")
+                    .attr("transform", "translate(0," + height + ")")
+                    .call(d3.axisBottom(xScale));
+
+                let yAxis = svg.append("g")
+                    .call(d3.axisLeft(yScale));
+
+                let lineGenerator = d3.line()
+                    .x(function (d) {
+                        return xScale(d.year);
+                    })
+                    .y(function (d) {
+                        return yScale(d.frequency);
+                    })
+                    .defined(function (d) {
+                        return d.frequency != 0;
+                    })
+                    .curve(d3.curveMonotoneX)
+
+                let nestedData = d3.nest()
+                    .key(function (d) {
+                        return d.name;
+                    })
+                    .entries(data);
+
+                var div = d3.select("body").append("div")
+                    .attr("class", "tooltip")
+                    .style("opacity", 0);
+
+                let lines = svg.append("g");
+
+                lines.selectAll(".line")
+                    .data(nestedData)
+                    .enter()
+                    .append("g")
+                    .append("path")
+                    .attr("class", "line")
+                    .attr("d", function (d, i) {
+                        return lineGenerator(d.values);
+                    })
+                    .style("fill", "none")
+                    .style("stroke", function (d, i) {
+                        return colors[i];
+                    })
+                    .style("opacity", .9)
+
+                    .style("stroke-width", 2)
+                    .on("mouseover", function (d, i) {
+                        d3.select(this).style("stroke-width", 4)
+                        lines.selectAll(".line").style("opacity", .25)
+                        d3.select(this).style("opacity", 1)
+                        div.transition()
+                            .duration(20)
+                            .style("opacity", .9);
+
+                        d3.select("body").append("h6").text(d.key);
+                        d3.select("h6").attr("align", "center");
+
+                    })
+                    .on("mouseout", function (d, i) {
+                        d3.select(this).style("stroke-width", 2)
+                        lines.selectAll(".line").style("opacity", .9)
+                        div.transition()
+                            .duration(50)
+                            .style("opacity", 0);
+                        d3.selectAll("h6").remove();
+                    })
+
+
+                    .on("click", function(){
+                        d3.select(this).style("opacity", 1)
+                        lines.selectAll(".line").style("opacity", .01)
+                        d3.select(this).style("opacity", 1)
+
+                    });
+            }
+        );
+    }
+
+    graph1()
+
+</script>
+</body>
+</html>
